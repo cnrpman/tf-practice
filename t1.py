@@ -62,7 +62,7 @@ def main():
 	[[x, t, y], model] =    model_building(D_input, D_label, D_hidden)
 	[X, Y]             =    data_construct()
 	sess               = tf.InteractiveSession()
-	                     tf.global_variables_initializer().run()
+  	tf.global_variables_initializer().run()
 
 	#train
 	with flush_display() as flush:
