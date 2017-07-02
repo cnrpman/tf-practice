@@ -6,7 +6,7 @@ import numpy as np
 import time
 
 class FNN(object):
-    def __init__(self, lr, drop_keep_rate, dim_input, dims_hid_layers, dim_output, task_type='regression',
+    def __init__(self, lr, drop_keep_rate, dim_input, dims_hid_layers, dim_output, name='FNN', task_type='regression',
                  l2_lambda=0.0):
         #rates
         self.lr = lr
@@ -35,7 +35,7 @@ class FNN(object):
         self.loss = 0.0
 
 
-        self.build_model('F')
+        self.build_ops(name)
 
     @staticmethod
     def summarize_variables(var):
@@ -77,7 +77,7 @@ class FNN(object):
     def dropout(in_tensor, drop_keep_rate):
         return tf.nn.dropout(in_tensor, drop_keep_rate)
 
-    def build_model(self, prefix):
+    def build_ops(self, prefix):
         #input
         with tf.name_scope('Input'):
             self.tensor_in = tf.placeholder(tf.float32, [None, self.dim_input], name="inputs")
@@ -89,13 +89,14 @@ class FNN(object):
         dims_layers = [self.dim_input] + self.dims_hid_layers + [self.dim_output]
 
         for i in range(len(dims_layers)-2):
-            tensor, L2_loss = self.through_layer(tensor, dims_layers[i], dims_layers[i+1], prefix+'_hid_'+str(i+1), act = tf.nn.relu)
+            tensor, L2_loss = self.through_layer(tensor, dims_layers[i], dims_layers[i+1], prefix+'_hid_'+str(i+1),
+                                                 act = tf.nn.relu)
             self.L2s.append(L2_loss)
             self.tensors_hid.append(tensor)
             tensor = self.dropout(tensor, self.drop_keep_rate)
             self.tensors_drop.append(tensor)
-            print('Add dense layer: %sD --> %sD relu with drop_keep:%s' \
-                %(dims_layers[i], dims_layers[i+1], self.drop_keep_rate))
+            print('Add dense layer: %sD --> %sD relu with drop_keep:%s'
+                  %(dims_layers[i], dims_layers[i+1], self.drop_keep_rate))
 
         #output layer
         if self.task_type == 'softmax':
@@ -135,7 +136,7 @@ class FNN(object):
             tf.summary.scalar('total_loss', self.total_loss)
 
         with tf.name_scope('train'):
-            self.model = tf.train.AdamOptimizer(self.lr).minimize(self.total_loss)
+            self.ops_train = tf.train.AdamOptimizer(self.lr).minimize(self.total_loss)
 
 def construct_dataset():
     inputs=[[0,0],[0,1],[1,0],[1,1]]
@@ -149,11 +150,11 @@ def main():
     ff = FNN(lr=1e-3, drop_keep_rate = 1.0, dims_hid_layers=[2], dim_input=2, dim_output=1, task_type='regression',
              l2_lambda=1e-2)
 
-    model, inputs, label, output = ff.model, ff.tensor_in, ff.tensor_label, ff.tensor_out
+    ops_train, inputs, label, output = ff.ops_train, ff.tensor_in, ff.tensor_label, ff.tensor_out
     X, Y = construct_dataset()
     sess = tf.InteractiveSession()
     tf.global_variables_initializer().run()
-    merged = tf.summary.merge_all()
+    ops_summary = tf.summary.merge_all()
 
     timestr = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
     train_writer = tf.summary.FileWriter('log'+'/train/'+ timestr, sess.graph)
@@ -161,9 +162,9 @@ def main():
     T = 5000
     feed_dict = {inputs: X, label: Y}
     for i in range(T):
-        sess.run(model, feed_dict=feed_dict)
+        sess.run(ops_train, feed_dict=feed_dict)
         if (i % 50) is 0:
-            summary_str = sess.run(merged, feed_dict=feed_dict)
+            summary_str = sess.run(ops_summary, feed_dict=feed_dict)
             train_writer.add_summary(summary_str, i)
 
 if __name__ == '__main__':
